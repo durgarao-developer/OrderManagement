@@ -70,8 +70,6 @@ public class OrdersController : ControllerBase
                 return BadRequest($"Insufficient stock for product {productId} ('{product.Name}'): requested {qty}, available {product.StockQuantity}.");
         }
 
-        await using var tx = await _db.Database.BeginTransactionAsync();
-
         var order = new Order { CustomerId = dto.CustomerId, Status = OrderStatus.Pending };
 
         foreach (var (productId, qty) in requested)
@@ -89,8 +87,16 @@ public class OrdersController : ControllerBase
         order.TotalAmount = order.Items.Sum(i => i.UnitPrice * i.Quantity);
 
         _db.Orders.Add(order);
-        await _db.SaveChangesAsync();
-        await tx.CommitAsync();
+
+        // EnableRetryOnFailure is on (for Azure), so the whole transaction must run
+        // inside an execution strategy that can retry the entire block as one unit.
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+        });
 
         // Order is safely saved. Drop a message on the queue so a background
         // worker (Week 4) can process it later. The API returns without waiting.
