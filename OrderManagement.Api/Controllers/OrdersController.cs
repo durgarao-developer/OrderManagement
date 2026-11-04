@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderManagement.Api.Data;
@@ -10,9 +11,16 @@ namespace OrderManagement.Api.Controllers;
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private const string QueueName = "order-created";
 
-    public OrdersController(AppDbContext db) => _db = db;
+    private readonly AppDbContext _db;
+    private readonly ServiceBusClient _serviceBus;
+
+    public OrdersController(AppDbContext db, ServiceBusClient serviceBus)
+    {
+        _db = db;
+        _serviceBus = serviceBus;
+    }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OrderResponse>>> GetAll()
@@ -83,6 +91,14 @@ public class OrdersController : ControllerBase
         _db.Orders.Add(order);
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
+
+        // Order is safely saved. Drop a message on the queue so a background
+        // worker (Week 4) can process it later. The API returns without waiting.
+        await using (var sender = _serviceBus.CreateSender(QueueName))
+        {
+            var payload = $"{{\"orderId\":{order.Id},\"customerId\":{order.CustomerId},\"totalAmount\":{order.TotalAmount}}}";
+            await sender.SendMessageAsync(new ServiceBusMessage(payload));
+        }
 
         var created = await _db.Orders
             .AsNoTracking()

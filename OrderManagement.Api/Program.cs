@@ -1,9 +1,14 @@
+using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using OrderManagement.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
+// Service Bus client (one per app, shared) for publishing order messages.
+builder.Services.AddSingleton(_ =>
+    new ServiceBusClient(builder.Configuration.GetConnectionString("ServiceBus")));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
