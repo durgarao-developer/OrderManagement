@@ -20,10 +20,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("Default"),
         sql => sql.EnableRetryOnFailure()));
 
-// Blob Storage client, reusing the Function App's own storage account,
-// for saving generated invoice files.
-builder.Services.AddSingleton(_ =>
-    new BlobServiceClient(builder.Configuration["AzureWebJobsStorage"]));
+// Blob Storage client for saving generated invoice files.
+// Reads a dedicated "BlobStorage" connection string (falls back to
+// AzureWebJobsStorage locally, where that is a plain connection string).
+var blobConnection = builder.Configuration["BlobStorage"]
+    ?? builder.Configuration["AzureWebJobsStorage"];
+builder.Services.AddSingleton(_ => new BlobServiceClient(blobConnection));
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {
