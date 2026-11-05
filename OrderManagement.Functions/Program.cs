@@ -1,4 +1,5 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
@@ -18,6 +19,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("Default"),
         sql => sql.EnableRetryOnFailure()));
+
+// Blob Storage client, reusing the Function App's own storage account,
+// for saving generated invoice files.
+builder.Services.AddSingleton(_ =>
+    new BlobServiceClient(builder.Configuration["AzureWebJobsStorage"]));
 
 if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING")))
 {
