@@ -1,0 +1,77 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  appServiceName: 'ordermgmt-api-durgarao'
+
+stages:
+# ====== CI: Build + Test ======
+- stage: Build
+  displayName: 'CI - Build and Test'
+  jobs:
+  - job: BuildAndTest
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Install .NET 10 SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '10.0.x'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Unit Tests'
+      inputs:
+        command: 'test'
+        projects: '**/OrderManagement.Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish API'
+      inputs:
+        command: 'publish'
+        publishWebProjects: false
+        projects: '**/OrderManagement.Api.csproj'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+
+# ====== CD: Deploy ======
+- stage: Deploy
+  displayName: 'CD - Deploy to App Service'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: DeployJob
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        artifactName: 'drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - task: AzureRmWebAppDeployment@4
+      displayName: 'Deploy to App Service (publish profile)'
+      inputs:
+        ConnectionType: 'PublishProfile'
+        PublishProfile: '$(publishProfile)'
+        Package: '$(System.ArtifactsDirectory)/drop/**/*.zip'
