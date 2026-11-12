@@ -71,16 +71,18 @@ stages:
 
     - task: PowerShell@2
       displayName: 'Deploy via Zip Deploy'
+      env:
+        DEPLOY_PASSWORD: $(publishProfilePassword)
       inputs:
         targetType: 'inline'
         script: |
           $zip = Get-ChildItem -Path "$(System.ArtifactsDirectory)/drop" -Filter *.zip -Recurse | Select-Object -First 1
           Write-Host "Deploying file: $($zip.FullName)"
           $user = '$ordermgmt-api-durgarao'
-          $pass = '$(publishProfilePassword)'
+          $pass = $env:DEPLOY_PASSWORD
           $pair = "$($user):$($pass)"
           $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
           $headers = @{ Authorization = "Basic $encoded" }
-          $url = "https://ordermgmt-api-durgarao.scm.azurewebsites.net/api/zipdeploy"
-          Invoke-RestMethod -Uri $url -Headers $headers -Method POST -InFile $zip.FullName -ContentType "application/zip"
+          $url = "https://ordermgmt-api-durgarao-cxhjf0eqevd2hbf8.scm.centralindia-01.azurewebsites.net/api/zipdeploy"
+          Invoke-RestMethod -Uri $url -Headers $headers -Method POST -InFile $zip.FullName -ContentType "application/zip" -TimeoutSec 300
           Write-Host "Deployment complete!"
