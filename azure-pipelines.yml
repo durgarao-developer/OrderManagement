@@ -74,4 +74,5 @@ stages:
       inputs:
         ConnectionType: 'PublishProfile'
         PublishProfile: '$(publishProfile)'
+        PublishProfilePassword: '$(publishProfilePassword)'
         Package: '$(System.ArtifactsDirectory)/drop/**/*.zip'
