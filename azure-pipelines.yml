@@ -72,7 +72,7 @@ stages:
     - task: PowerShell@2
       displayName: 'Deploy via Zip Deploy'
       env:
-        DEPLOY_PASSWORD: $(publishProfilePassword)
+        DEPLOY_PASSWORD: $(userPWD)
       inputs:
         targetType: 'inline'
         script: |
